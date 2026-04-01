@@ -1,0 +1,20 @@
+[
+  {
+    "guid": "94EA4E14-8163-4989-96FE-0A2094BC2D6A",
+    "name": "Gelato Multi-Addon",
+    "description": "Integración Stremio para Jellyfin compatible con Torrentio, CineCalidad, AIOStreams y más.",
+    "overview": "Conecta cualquier addon Stremio a Jellyfin 10.11",
+    "owner": "sdd212013-rgb",
+    "category": "General",
+    "versions": [
+      {
+        "version": "1.0.0",
+        "changelog": "Release v1.0.0",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/sdd212013-rgb/Gelato/releases/download/v1.0.0/Gelato_v1.0.0.zip",
+        "checksum": "52bbd584ce8e0fa9cfcb070477320825",
+        "timestamp": "2026-04-01T02:25:00Z"
+      }
+    ]
+  }
+]
