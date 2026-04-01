@@ -1,0 +1,122 @@
+name: Build & Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 9
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Build
+        run: dotnet build Gelato.csproj -c Release -o ./output
+
+      - name: Get version
+        id: version
+        run: echo "VERSION=${GITHUB_REF_NAME:-v1.0.0}" >> $GITHUB_OUTPUT
+
+      - name: Create zip
+        run: |
+          cd output
+          zip -r ../Gelato_${{ steps.version.outputs.VERSION }}.zip *.dll
+
+      - name: Calculate checksum
+        id: checksum
+        run: |
+          echo "MD5=$(md5sum Gelato_${{ steps.version.outputs.VERSION }}.zip | awk '{print $1}')" >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.VERSION }}
+          name: "Gelato Multi-Addon ${{ steps.version.outputs.VERSION }}"
+          body: |
+            ## Gelato Multi-Addon - ${{ steps.version.outputs.VERSION }}
+
+            Fork de Gelato con soporte para cualquier addon Stremio.
+
+            ### Instalación
+            Agrega el repositorio a Jellyfin:
+            ```
+            https://raw.githubusercontent.com/${{ github.repository_owner }}/Gelato/gh-pages/repository.json
+            ```
+
+            ### Checksum MD5
+            `${{ steps.checksum.outputs.MD5 }}`
+          files: |
+            Gelato_${{ steps.version.outputs.VERSION }}.zip
+
+  publish-repo:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 9
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Build
+        run: dotnet build Gelato.csproj -c Release -o ./output
+
+      - name: Get version
+        id: version
+        run: echo "VERSION=${GITHUB_REF_NAME:-v1.0.0}" >> $GITHUB_OUTPUT
+
+      - name: Create zip
+        run: |
+          cd output
+          zip -r ../Gelato_${{ steps.version.outputs.VERSION }}.zip *.dll
+
+      - name: Calculate MD5
+        id: md5
+        run: echo "MD5=$(md5sum Gelato_${{ steps.version.outputs.VERSION }}.zip | awk '{print $1}')" >> $GITHUB_OUTPUT
+
+      - name: Prepare gh-pages repo JSON
+        run: |
+          mkdir -p gh-pages-content
+          cat > gh-pages-content/repository.json << REPOJSON
+          [
+            {
+              "guid": "94EA4E14-8163-4989-96FE-0A2094BC2D6A",
+              "name": "Gelato Multi-Addon",
+              "description": "Integración Stremio para Jellyfin compatible con Torrentio, CineCalidad, AIOStreams y más.",
+              "overview": "Conecta cualquier addon Stremio a Jellyfin 10.11",
+              "owner": "${{ github.repository_owner }}",
+              "category": "General",
+              "versions": [
+                {
+                  "version": "${GITHUB_REF_NAME#v}",
+                  "changelog": "Release ${{ steps.version.outputs.VERSION }}",
+                  "targetAbi": "10.11.0.0",
+                  "sourceUrl": "https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.VERSION }}/Gelato_${{ steps.version.outputs.VERSION }}.zip",
+                  "checksum": "${{ steps.md5.outputs.MD5 }}",
+                  "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+                }
+              ]
+            }
+          ]
+          REPOJSON
+
+      - name: Deploy to gh-pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./gh-pages-content
+          publish_branch: gh-pages

@@ -1,28 +1,13 @@
 ---
-name: "Gelato"
+name: "Gelato Multi-Addon"
 guid: "94EA4E14-8163-4989-96FE-0A2094BC2D6A"
-version: "0.25.6.1"
-targetAbi: "10.11.6.0"
+version: "1.0.0"
+targetAbi: "10.11.0.0"
 framework: "net9.0"
-owner: "lstb1t"
-artifacts:
-  - "Gelato.dll"
-  - "Mono.Nat.dll"
-  - "MonoTorrent.BEncoding.dll"
-  - "MonoTorrent.Client.dll"
-  - "MonoTorrent.Connections.dll"
-  - "MonoTorrent.Dht.dll"
-  - "MonoTorrent.dll"
-  - "MonoTorrent.Factories.dll"
-  - "MonoTorrent.Messages.dll"
-  - "MonoTorrent.PiecePicking.dll"
-  - "MonoTorrent.PieceWriter.dll"
-  - "MonoTorrent.PortForwarding.dll"
-  - "MonoTorrent.Trackers.dll"
-  - "ReusableTasks.dll"
-overview: "Stream external media."
+overview: "Integración Stremio para Jellyfin — Compatible con Torrentio, CineCalidad, AIOStreams y cualquier addon de la comunidad"
 description: >
-  Stream external media.
+  Fork de Gelato que permite usar cualquier addon Stremio (Torrentio, CineCalidad,
+  AIOStreams, Cinemeta, etc.) directamente en Jellyfin 10.11. Soporta múltiples
+  addons simultáneos y streams P2P.
 category: "General"
-changelog: >
-  changelog
+owner: "community"
