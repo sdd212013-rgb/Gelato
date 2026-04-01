@@ -10,10 +10,10 @@
       {
         "version": "1.0.0",
         "changelog": "Release v1.0.0",
-        "targetAbi": "10.11.2.0",
+        "targetAbi": "10.11.7.0",
         "sourceUrl": "https://github.com/sdd212013-rgb/Gelato/releases/download/v1.0.0/Gelato_v1.0.0.zip",
-        "checksum": "2fe4b16e6d0910ce9c6b050b6776e982",
-        "timestamp": "2026-04-01T03:00:10Z"
+        "checksum": "7192411b5b7eeebe3bbb3f7c494919f7",
+        "timestamp": "2026-04-01T03:57:02Z"
       }
     ]
   }
