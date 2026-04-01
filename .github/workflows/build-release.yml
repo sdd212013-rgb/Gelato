@@ -7,10 +7,12 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  build-and-publish:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      pages: write
+      id-token: write
 
     steps:
       - uses: actions/checkout@v4
@@ -25,19 +27,24 @@ jobs:
 
       - name: Get version
         id: version
-        run: echo "VERSION=${GITHUB_REF_NAME:-v1.0.0}" >> $GITHUB_OUTPUT
+        run: |
+          TAG=${GITHUB_REF_NAME:-v1.0.0}
+          echo "VERSION=$TAG" >> $GITHUB_OUTPUT
+          echo "VERSION_NUM=${TAG#v}" >> $GITHUB_OUTPUT
 
       - name: Create zip
         run: |
           cd output
           zip -r ../Gelato_${{ steps.version.outputs.VERSION }}.zip *.dll
 
-      - name: Calculate checksum
+      - name: Calculate MD5 checksum
         id: checksum
         run: |
-          echo "MD5=$(md5sum Gelato_${{ steps.version.outputs.VERSION }}.zip | awk '{print $1}')" >> $GITHUB_OUTPUT
+          MD5=$(md5sum Gelato_${{ steps.version.outputs.VERSION }}.zip | awk '{print $1}')
+          echo "MD5=$MD5" >> $GITHUB_OUTPUT
+          echo "Checksum: $MD5"
 
-      - name: Create Release
+      - name: Create Release with zip
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.VERSION }}
@@ -45,10 +52,10 @@ jobs:
           body: |
             ## Gelato Multi-Addon - ${{ steps.version.outputs.VERSION }}
 
-            Fork de Gelato con soporte para cualquier addon Stremio.
+            Fork de Gelato con soporte para cualquier addon Stremio (Torrentio, CineCalidad, AIOStreams, etc.)
 
             ### Instalación
-            Agrega el repositorio a Jellyfin:
+            Agrega el repositorio a Jellyfin → Dashboard → Plugins → Repositories:
             ```
             https://raw.githubusercontent.com/${{ github.repository_owner }}/Gelato/gh-pages/repository.json
             ```
@@ -58,40 +65,10 @@ jobs:
           files: |
             Gelato_${{ steps.version.outputs.VERSION }}.zip
 
-  publish-repo:
-    needs: build
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup .NET 9
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '9.0.x'
-
-      - name: Build
-        run: dotnet build Gelato.csproj -c Release -o ./output
-
-      - name: Get version
-        id: version
-        run: echo "VERSION=${GITHUB_REF_NAME:-v1.0.0}" >> $GITHUB_OUTPUT
-
-      - name: Create zip
-        run: |
-          cd output
-          zip -r ../Gelato_${{ steps.version.outputs.VERSION }}.zip *.dll
-
-      - name: Calculate MD5
-        id: md5
-        run: echo "MD5=$(md5sum Gelato_${{ steps.version.outputs.VERSION }}.zip | awk '{print $1}')" >> $GITHUB_OUTPUT
-
-      - name: Prepare gh-pages repo JSON
+      - name: Generate repository.json
         run: |
           mkdir -p gh-pages-content
-          cat > gh-pages-content/repository.json << REPOJSON
+          cat > gh-pages-content/repository.json << EOF
           [
             {
               "guid": "94EA4E14-8163-4989-96FE-0A2094BC2D6A",
@@ -102,19 +79,19 @@ jobs:
               "category": "General",
               "versions": [
                 {
-                  "version": "${GITHUB_REF_NAME#v}",
+                  "version": "${{ steps.version.outputs.VERSION_NUM }}",
                   "changelog": "Release ${{ steps.version.outputs.VERSION }}",
                   "targetAbi": "10.11.0.0",
                   "sourceUrl": "https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.VERSION }}/Gelato_${{ steps.version.outputs.VERSION }}.zip",
-                  "checksum": "${{ steps.md5.outputs.MD5 }}",
+                  "checksum": "${{ steps.checksum.outputs.MD5 }}",
                   "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
                 }
               ]
             }
           ]
-          REPOJSON
+          EOF
 
-      - name: Deploy to gh-pages
+      - name: Deploy repository.json to gh-pages
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
