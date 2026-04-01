@@ -166,6 +166,4 @@ if (ctx is not null && ctx.IsApiListing() && filter.IsDeadPerson is null)
         IReadOnlyList<string> artistNames
     ) => _inner.FindArtists(artistNames);
 
-    public Task ReattachUserDataAsync(BaseItem item, CancellationToken cancellationToken) =>
-        _inner.ReattachUserDataAsync(item, cancellationToken);
 }
