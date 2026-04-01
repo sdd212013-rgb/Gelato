@@ -1,119 +1,194 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Text.Json.Serialization;
+using System.Xml.Serialization;
+using MediaBrowser.Controller.Entities;
+using MediaBrowser.Controller.Library;
 using MediaBrowser.Model.Plugins;
+using Microsoft.Extensions.Logging;
 
-namespace Gelato.Configuration;
-
-/// <summary>
-/// Configuración de un único addon Stremio compatible.
-/// </summary>
-public class StremioAddonEntry
+namespace Gelato.Configuration
 {
-    public string Name { get; set; } = "";
-    public string ManifestUrl { get; set; } = "";
-    public bool Enabled { get; set; } = true;
-}
-
-public class PluginUserConfig
-{
-    public Guid UserId { get; set; }
-
-    /// <summary>URL del manifest Stremio del usuario (sobreescribe el global si no está vacío).</summary>
-    public string ManifestUrl { get; set; } = "";
-
-    public PluginConfiguration? ApplyOverrides(PluginConfiguration? global)
+    // -------------------------------------------------------------------------
+    // Entrada para addons Stremio adicionales (multi-addon)
+    // -------------------------------------------------------------------------
+    public class StremioAddonEntry
     {
-        if (global == null) return null;
-        var cfg = global.ShallowCopy();
-        if (!string.IsNullOrWhiteSpace(ManifestUrl))
-            cfg.ManifestUrl = ManifestUrl;
-        return cfg;
+        public string Name { get; set; } = "";
+        public string ManifestUrl { get; set; } = "";
+        public bool Enabled { get; set; } = true;
     }
-}
 
-public class PluginConfiguration : BasePluginConfiguration
-{
-    // -------------------------------------------------------------------------
-    // Configuración principal del addon
-    // -------------------------------------------------------------------------
-
-    /// <summary>
-    /// URL base del manifest Stremio (cualquier addon compatible: Torrentio,
-    /// CineCalidad, AIOStreams, Cinemeta, etc.)
-    /// Ejemplo Torrentio:
-    ///   https://torrentio.strem.fun/CONFIGURACION/manifest.json
-    /// Ejemplo CineCalidad:
-    ///   https://stremio.cine-calidad.com/manifest.json
-    /// Ejemplo AIOStreams selfhosted:
-    ///   http://localhost:2634/stremio/HASH/manifest.json
-    /// </summary>
-    public string ManifestUrl { get; set; } = "";
-
-    // -------------------------------------------------------------------------
-    // Addons adicionales (múltiples manifests, se agregan streams de todos)
-    // -------------------------------------------------------------------------
-
-    /// <summary>
-    /// Lista de addons Stremio adicionales. Los streams de todos se
-    /// combinan y presentan al usuario ordenados por nombre.
-    /// </summary>
-    public List<StremioAddonEntry> ExtraAddons { get; set; } = new()
+    public class PluginConfiguration : BasePluginConfiguration
     {
-        new StremioAddonEntry
+        // -------------------------------------------------------------------------
+        // Propiedades originales — NO tocar, el resto del código las usa
+        // -------------------------------------------------------------------------
+        public string MoviePath { get; set; } =
+            Path.Combine(Path.GetTempPath(), "gelato", "movies");
+
+        public string SeriesPath { get; set; } =
+            Path.Combine(Path.GetTempPath(), "gelato", "series");
+
+        public int StreamTTL { get; set; } = 3600;
+        public int CatalogMaxItems { get; set; } = 100;
+
+        /// <summary>
+        /// URL del manifest Stremio (addon principal).
+        /// Acepta cualquier addon compatible: Torrentio, CineCalidad, AIOStreams, etc.
+        /// Ejemplos:
+        ///   https://torrentio.strem.fun/manifest.json
+        ///   https://stremio.cine-calidad.com/manifest.json
+        ///   http://localhost:2634/stremio/HASH/manifest.json
+        /// </summary>
+        public string Url { get; set; } = "";
+
+        public bool EnableSubs { get; set; } = false;
+        public bool EnableMixed { get; set; } = false;
+        public bool FilterUnreleased { get; set; } = false;
+        public int FilterUnreleasedBufferDays { get; set; } = 30;
+        public bool DisableSourceCount { get; set; } = true;
+        public bool P2PEnabled { get; set; } = false;
+        public int P2PDLSpeed { get; set; } = 0;
+        public int P2PULSpeed { get; set; } = 0;
+        public string FFmpegAnalyzeDuration { get; set; } = "5M";
+        public string FFmpegProbeSize { get; set; } = "40M";
+        public bool CreateCollections { get; set; } = false;
+        public int MaxCollectionItems { get; set; } = 100;
+        public bool DisableSearch { get; set; } = false;
+
+        public List<UserConfig> UserConfigs { get; set; } = new List<UserConfig>();
+
+        // -------------------------------------------------------------------------
+        // NUEVO — Addons adicionales (multi-addon)
+        // -------------------------------------------------------------------------
+        /// <summary>
+        /// Lista de addons Stremio adicionales. Los streams de todos se combinan.
+        /// </summary>
+        public List<StremioAddonEntry> ExtraAddons { get; set; } = new List<StremioAddonEntry>
         {
-            Name = "Torrentio",
-            ManifestUrl = "https://torrentio.strem.fun/manifest.json",
-            Enabled = false
-        },
-        new StremioAddonEntry
+            new StremioAddonEntry
+            {
+                Name = "Torrentio",
+                ManifestUrl = "https://torrentio.strem.fun/manifest.json",
+                Enabled = false
+            },
+            new StremioAddonEntry
+            {
+                Name = "CineCalidad",
+                ManifestUrl = "https://stremio.cine-calidad.com/manifest.json",
+                Enabled = false
+            }
+        };
+
+        // -------------------------------------------------------------------------
+        // Métodos originales — NO tocar
+        // -------------------------------------------------------------------------
+        public string GetBaseUrl()
         {
-            Name = "CineCalidad",
-            ManifestUrl = "https://stremio.cine-calidad.com/manifest.json",
-            Enabled = false
+            if (string.IsNullOrWhiteSpace(Url))
+                throw new InvalidOperationException("Gelato Url not configured.");
+
+            var u = Url.Trim().TrimEnd('/');
+
+            if (u.EndsWith("/manifest.json", StringComparison.OrdinalIgnoreCase))
+                u = u[..^"/manifest.json".Length];
+
+            return u;
         }
-    };
 
-    // -------------------------------------------------------------------------
-    // Opciones de streams
-    // -------------------------------------------------------------------------
+        [JsonIgnore]
+        [XmlIgnore]
+        public GelatoStremioProvider? stremio;
 
-    /// <summary>Habilita soporte P2P/torrents (requiere cliente compatible).</summary>
-    public bool P2PEnabled { get; set; } = true;
+        [JsonIgnore]
+        [XmlIgnore]
+        public Folder? MovieFolder;
 
-    /// <summary>Prefijo de carpeta para películas en la biblioteca.</summary>
-    public string MovieLibraryPath { get; set; } = "stremio/movies";
+        [JsonIgnore]
+        [XmlIgnore]
+        public Folder? SeriesFolder;
 
-    /// <summary>Prefijo de carpeta para series en la biblioteca.</summary>
-    public string SeriesLibraryPath { get; set; } = "stremio/series";
+        public PluginConfiguration GetEffectiveConfig(Guid userId)
+        {
+            var userConfig = UserConfigs.FirstOrDefault(u => u.UserId == userId);
+            if (userConfig is null)
+                return this;
+            return userConfig.ApplyOverrides(this);
+        }
+    }
 
-    // -------------------------------------------------------------------------
-    // Configuración por usuario
-    // -------------------------------------------------------------------------
-    public List<PluginUserConfig> UserConfigs { get; set; } = new();
-
-    // -------------------------------------------------------------------------
-    // Propiedades de runtime (no serializadas, usadas internamente)
-    // -------------------------------------------------------------------------
-    [System.Text.Json.Serialization.JsonIgnore]
-    public GelatoStremioProvider? stremio { get; set; }
-
-    [System.Text.Json.Serialization.JsonIgnore]
-    public object? MovieFolder { get; set; }
-
-    [System.Text.Json.Serialization.JsonIgnore]
-    public object? SeriesFolder { get; set; }
-
-    public PluginConfiguration ShallowCopy() => (PluginConfiguration)MemberwiseClone();
-
-    /// <summary>
-    /// Devuelve la URL base del manifest sin el segmento /manifest.json final.
-    /// Gelato espera la base URL, no la URL completa del manifest.
-    /// </summary>
-    public string GetBaseUrl()
+    public class UserConfig
     {
-        var url = ManifestUrl?.Trim() ?? "";
-        if (url.EndsWith("/manifest.json", StringComparison.OrdinalIgnoreCase))
-            url = url[..^"/manifest.json".Length];
-        return url.TrimEnd('/');
+        public Guid UserId { get; set; }
+        public string Url { get; set; } = "";
+        public string MoviePath { get; set; } = "";
+        public string SeriesPath { get; set; } = "";
+        public bool DisableSearch { get; set; } = false;
+
+        public PluginConfiguration ApplyOverrides(PluginConfiguration baseConfig)
+        {
+            return new PluginConfiguration
+            {
+                // Campos sobreescribibles por usuario
+                Url = Url,
+                MoviePath = MoviePath,
+                SeriesPath = SeriesPath,
+                DisableSearch = DisableSearch,
+
+                // Resto desde config base
+                StreamTTL = baseConfig.StreamTTL,
+                CatalogMaxItems = baseConfig.CatalogMaxItems,
+                EnableSubs = baseConfig.EnableSubs,
+                EnableMixed = baseConfig.EnableMixed,
+                FilterUnreleased = baseConfig.FilterUnreleased,
+                FilterUnreleasedBufferDays = baseConfig.FilterUnreleasedBufferDays,
+                DisableSourceCount = baseConfig.DisableSourceCount,
+                P2PEnabled = baseConfig.P2PEnabled,
+                P2PDLSpeed = baseConfig.P2PDLSpeed,
+                P2PULSpeed = baseConfig.P2PULSpeed,
+                FFmpegAnalyzeDuration = baseConfig.FFmpegAnalyzeDuration,
+                FFmpegProbeSize = baseConfig.FFmpegProbeSize,
+                CreateCollections = baseConfig.CreateCollections,
+                MaxCollectionItems = baseConfig.MaxCollectionItems,
+                UserConfigs = baseConfig.UserConfigs,
+                ExtraAddons = baseConfig.ExtraAddons,
+            };
+        }
+    }
+
+    public class GelatoStremioProviderFactory
+    {
+        private readonly IHttpClientFactory _http;
+        private readonly ILoggerFactory _log;
+
+        public GelatoStremioProviderFactory(
+            IHttpClientFactory http,
+            ILoggerFactory log
+        )
+        {
+            _http = http;
+            _log = log;
+        }
+
+        public GelatoStremioProvider Create(Guid userId)
+        {
+            var cfg = GelatoPlugin.Instance!.Configuration.GetEffectiveConfig(userId);
+            return new GelatoStremioProvider(
+                cfg.GetBaseUrl(),
+                _http,
+                _log.CreateLogger<GelatoStremioProvider>()
+            );
+        }
+
+        public GelatoStremioProvider Create(PluginConfiguration cfg)
+        {
+            return new GelatoStremioProvider(
+                cfg.GetBaseUrl(),
+                _http,
+                _log.CreateLogger<GelatoStremioProvider>()
+            );
+        }
     }
 }
