@@ -11,11 +11,11 @@ using MediaBrowser.Model.Providers;
 
 namespace Gelato.Decorators
 {
-    public sealed class GelatoSubtitleManager : ISubtitleManager
+    public sealed class SubtitleManagerDecorator : ISubtitleManager
     {
         private readonly ISubtitleManager _inner;
 
-        public GelatoSubtitleManager(ISubtitleManager inner)
+        public SubtitleManagerDecorator(ISubtitleManager inner)
         {
             _inner = inner;
         }
@@ -41,10 +41,7 @@ namespace Gelato.Decorators
         )
         {
             // nasty hack to prevent some plugins chocking on remote files
-            if (request.MediaPath.StartsWith("http", StringComparison.OrdinalIgnoreCase))
-            {
-                request.MediaPath += ".strm";
-            }
+            // request.MediaPath = request.MediaPath + ".strm";
             return _inner.SearchSubtitles(request, cancellationToken);
         }
 
@@ -59,7 +56,14 @@ namespace Gelato.Decorators
             LibraryOptions libraryOptions,
             string subtitleId,
             CancellationToken cancellationToken
-        ) => _inner.DownloadSubtitles(video, libraryOptions, subtitleId, cancellationToken);
+        )
+        {
+            if (video.IsGelato())
+            {
+                libraryOptions.SaveSubtitlesWithMedia = false;
+            }
+            return _inner.DownloadSubtitles(video, libraryOptions, subtitleId, cancellationToken);
+        }
 
         public Task UploadSubtitle(Video video, SubtitleResponse response) =>
             _inner.UploadSubtitle(video, response);

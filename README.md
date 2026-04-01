@@ -1,109 +1,62 @@
-<p align="center">
-  <img src="logo.png" width="120" alt="Gelato Logo">
-</p>
+<div align="center">
+   <img width="125" src="logo.png" alt="Logo">
+</div>
 
-<h1 align="center">Gelato — Multi-Addon Fork</h1>
-<p align="center"><em>Integración Stremio para Jellyfin — Compatible con cualquier addon de la comunidad</em></p>
+<div align="center">
+  <h1><b>Gelato</b></h1>
+  <p><i>Jellyfin Stremio Integration Plugin</i></p>
+</div>
 
-<p align="center">
-  <a href="https://github.com/j4ckgrey/Gelato">Upstream original</a> •
-  <a href="https://github.com/lostb1t/Gelato">Repo raíz</a>
-</p>
+Bring the power of Stremio addons directly into Jellyfin. This plugin replaces Jellyfin’s default search with Stremio-powered results and can automatically import entire catalogs into your library through scheduled tasks, seamlessly injecting them into Jellyfin’s database so they behave like native items.
 
----
+ <a href="https://discord.gg/rEbhk4RBhs">
+    <img src="https://img.shields.io/badge/Talk%20on-Discord-brightgreen">
+</a>
 
-## ¿Qué es esto?
+### Features
+- **Unified Search** – Jellyfin search now pulls results from Stremio addons
+- **Catalogs** – Import items from stremio catalogs into your library with scheduled tasks
+- **Realtime Streaming** – Streams are resolved on demand and play instantly
+- **Database Integration** – Stremio items appear like native Jellyfin items
+- **Act as an proxy** - Streams are proxied through Jellyfin, so debrid sees everything as a single IP.
+- **Per user settings** - Users can have their own manifest, perfect for age restricted accounts.
+- **More Content, Less Hassle** – Expand Jellyfin with community-driven Stremio catalogs
 
-Fork de [j4ckgrey/Gelato](https://github.com/j4ckgrey/Gelato) que elimina la dependencia exclusiva de **AIOStreams** y permite usar **cualquier addon Stremio** de la comunidad directamente en Jellyfin 10.11.2 en Windows.
+## Usage
 
-## ✨ Cambios respecto al original
+1. Setup an aiostreams manifest. You can selfhost or use an public instance, for example: [Elfhosted public instance](https://aiostreams.elfhosted.com/stremio/configure)
+   
+   If you are new to debrid and are signing up please use one of my <a href="https://github.com/lostb1t/Gelato?tab=readme-ov-file#support-me">referrals</a>.
+   
+   At minimum you need the **tmdb addon enabled** for search and one addon that provides streams (comet for example).
+   Alternative you can import the [starter config](aiostreams-config.json). Remember to enable your debrid providers under services after importing the config.
+   
+   **p2p support currently in beta**
 
-| Original | Este fork |
-|---|---|
-| Solo funciona con AIOStreams | Compatible con cualquier manifest Stremio |
-| Un único manifest configurable | Múltiples addons simultáneos |
-| UI enfocada a AIOStreams | UI genérica con ejemplos de varios addons |
+2. Make sure you are running Jellyfin 10.11 and add `https://raw.githubusercontent.com/lostb1t/Gelato/refs/heads/gh-pages/repository.json` to your plugin repositories.
 
-## 🍿 Addons compatibles
+3. Install and configure the plugin.
+   **Note:** Only **AIOStreams** is supported.
 
-Cualquier addon que exponga un manifest Stremio estándar en `/manifest.json`:
+4. Add the configured base paths to the Jellyfin library of your choice. After adding them, start a library scan.
 
-- **[Torrentio](https://torrentio.strem.fun)** — Streams desde múltiples fuentes torrent
-- **[CineCalidad](https://stremio.cine-calidad.com)** — Contenido en español Latino
-- **[AIOStreams](https://aiostreams.elfhosted.com)** — Agregador con soporte debrid
-- **[Cinemeta](https://v3-cinemeta.strem.io)** — Metadatos TMDB/IMDB
-- Y cualquier otro addon de la [comunidad Stremio](https://www.stremio.com/addon-sdk)
+4.5 For shows, enable the "Gelato missing season/episode fetcher" and put
+it on too of the metadata downloaders.
 
-## 🚀 Instalación en Jellyfin 10.11.2 (Windows)
+5. Profit! Now search for your favorite movie and start streaming. Or run the catalog import task to populate your db.
 
-### 1. Agregar repositorio de plugins
+For a more in depth guide see [starter guide](https://github.com/lostb1t/Gelato/discussions/40)
 
-En Jellyfin → **Dashboard → Plugins → Repositories** → Agregar:
+## Notes
 
-```
-https://raw.githubusercontent.com/TU_USUARIO/Gelato/gh-pages/repository.json
-```
+- Only **AIOStreams** is supported
+- **P2P currently in beta**
 
-### 2. Instalar el plugin
+### FAQ
 
-Dashboard → Plugins → Catálogo → **Gelato** → Instalar
-
-### 3. Configurar
-
-1. Reinicia Jellyfin después de instalar
-2. Ve a **Plugins → Gelato → Configuración**
-3. Pega la URL de tu manifest Stremio favorito:
-   - Torrentio: `https://torrentio.strem.fun/manifest.json`
-   - CineCalidad: `https://stremio.cine-calidad.com/manifest.json`
-   - AIOStreams: `http://TU_IP:PUERTO/stremio/HASH/manifest.json`
-4. (Opcional) Agrega addons adicionales en la sección de abajo
-5. Guarda y reinicia Jellyfin
-
-### 4. Agregar rutas a la biblioteca
-
-Agrega las rutas base a una biblioteca de Jellyfin:
-- Películas: `stremio/movies`
-- Series: `stremio/series`
-
-Luego ejecuta un **Escaneo de biblioteca**.
-
-## 🏗️ Compilar desde fuente (Windows)
-
-```powershell
-# Requiere .NET 9 SDK
-dotnet build Gelato.csproj -c Release
-# El .dll queda en bin/Release/net9.0/Gelato.dll
-# Cópialo a: %APPDATA%\jellyfin\plugins\Gelato\
-```
-
-## 📋 Requisitos
-
-- Jellyfin **10.11.2** o superior
-- .NET 9 Runtime (incluido en el instalador de Jellyfin)
-- Windows 10/11 (también funciona en Linux/Docker)
-- Un addon Stremio compatible (ver lista arriba)
-
-## ❓ FAQ
-
-**¿Necesito cuenta de debrid?**
-No es obligatorio. Torrentio funciona sin debrid (aunque más lento). Para mejor experiencia, usa Real-Debrid o Torbox.
-
-**¿Puedo usar CineCalidad para contenido en español?**
-Sí, es uno de los mejores addons para contenido latino. Agrega `https://stremio.cine-calidad.com/manifest.json` en la configuración.
-
-**¿Cómo agrego múltiples addons?**
-En la configuración, usa la sección "Addons Adicionales" para agregar tantos manifests como quieras. Los streams de todos se combinan.
-
-**¿Funciona con Torrentio configurado (con API key de debrid)?**
-Sí. Usa tu URL personalizada de Torrentio con tus parámetros configurados.
-
-## Créditos
-
-- [lostb1t](https://github.com/lostb1t) — Autor original de Gelato
-- [j4ckgrey](https://github.com/j4ckgrey) — Fork intermedio
-- Este fork agrega soporte multi-addon para la comunidad
-
-## Licencia
-
-GPL-3.0 — Ver [LICENSE](LICENSE)
-# Multi-addon fork
+- You need to restart the server after editing the manifest/config in aiostreams.
+- You should have at least one search enabled catalog. I suggest the tmdb addon.
+- if something borked or you want to start over, you can use the purge task under scheduled tasks.
+- I suggest lowering the default timeout on your stremio addons in aiostreams (5 seconds for example)
+- debridio tmdb and debridio tvdb are pronlematic. I suggest using the regular tmdb addon.
+- Stream cache can be cleared by restarting the server

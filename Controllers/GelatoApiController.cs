@@ -1,31 +1,22 @@
 #pragma warning disable SA1611, SA1591, SA1615, CS0165
 
-using System;
 using System.ComponentModel.DataAnnotations;
-using System.IO;
-using System.Linq;
 using System.Net;
 using System.Text.RegularExpressions;
-using System.Threading;
-using System.Threading.Tasks;
-using Gelato.Configuration;
 using MediaBrowser.Common.Configuration;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using MonoTorrent;
 using MonoTorrent.Client;
-using MonoTorrent.Streaming;
-using Gelato.Common;
 
-namespace Gelato;
+namespace Gelato.Controllers;
 
 [ApiController]
 [Route("gelato")]
 public sealed class GelatoApiController : ControllerBase
 {
     private readonly ILogger<GelatoApiController> _log;
-    private readonly IApplicationPaths _appPaths;
     private readonly GelatoManager _gelatoManager;
     private readonly string _downloadPath;
 
@@ -36,9 +27,8 @@ public sealed class GelatoApiController : ControllerBase
     )
     {
         _log = log;
-        _appPaths = appPaths;
         _gelatoManager = gelatoManager;
-        _downloadPath = Path.Combine(_appPaths.CachePath, "gelato-torrents");
+        _downloadPath = Path.Combine(appPaths.CachePath, "gelato-torrents");
         Directory.CreateDirectory(_downloadPath);
     }
 
@@ -50,7 +40,7 @@ public sealed class GelatoApiController : ControllerBase
     )
     {
         var cfg = GelatoPlugin.Instance!.GetConfig(Guid.Empty);
-        var meta = await cfg.stremio.GetMetaAsync(id, stremioMetaType);
+        var meta = await cfg.Stremio.GetMetaAsync(id, stremioMetaType);
         if (meta is null)
         {
             return NotFound();
@@ -58,17 +48,10 @@ public sealed class GelatoApiController : ControllerBase
         return meta;
     }
 
-    [HttpGet("catalogs")]
-    [Authorize]
-    public async Task<ActionResult<List<StremioCatalog>>> GetCatalogs()
-    {
-        HttpContext.TryGetUserId(out var userId);
-        var cfg = GelatoPlugin.Instance!.GetConfig(userId);
-        var manifest = await cfg.stremio.GetManifestAsync();
-        return Ok(manifest?.Catalogs ?? new List<StremioCatalog>());
-    }
+    // [HttpGet("catalogs")]
+    // Moved to CatalogController
 
-    [HttpGet("subtitles/{itemId}")]
+    [HttpGet("subtitles/{itemId:guid}")]
     public ActionResult<IEnumerable<StremioSubtitle>> GetSubtitles(
         [FromRoute, Required] Guid itemId
     )
@@ -104,7 +87,7 @@ public sealed class GelatoApiController : ControllerBase
         {
             MaximumConnections = 40,
             MaximumDownloadRate = GelatoPlugin.Instance!.Configuration.P2PDLSpeed,
-            MaximumUploadRate = GelatoPlugin.Instance!.Configuration.P2PULSpeed,
+            MaximumUploadRate = GelatoPlugin.Instance.Configuration.P2PULSpeed,
         }.ToSettings();
 
         var engine = new ClientEngine(settings);
@@ -127,8 +110,8 @@ public sealed class GelatoApiController : ControllerBase
                 return StatusCode(503, "Metadata not yet available.");
         }
 
-        ITorrentManagerFile selected =
-            (idx is int i && i >= 0 && i < manager.Files.Count)
+        var selected =
+            idx is { } i and >= 0 && i < manager.Files.Count
                 ? manager.Files[i]
                 : (
                     !string.IsNullOrWhiteSpace(filename)
@@ -144,7 +127,7 @@ public sealed class GelatoApiController : ControllerBase
                 );
 
         var timerCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        var timer = new System.Threading.Timer(
+        var timer = new Timer(
             _ =>
             {
                 _log.LogDebug(
@@ -175,30 +158,47 @@ public sealed class GelatoApiController : ControllerBase
             {
                 timerCts.Cancel();
             }
-            catch { }
+            catch
+            {
+                // ignored
+            }
+
             try
             {
                 timer.Dispose();
             }
-            catch { }
+            catch
+            {
+                // ignored
+            }
+
             try
             {
                 manager.StopAsync().GetAwaiter().GetResult();
             }
-            catch { }
+            catch
+            {
+                // ignored
+            }
+
             try
             {
                 engine.Dispose();
             }
-            catch { }
+            catch
+            {
+                // ignored
+            }
         });
 
-        Response.Headers["Accept-Ranges"] = "bytes";
+        Response.Headers.AcceptRanges = "bytes";
         return File(stream, GuessContentType(selected.Path), enableRangeProcessing: true);
     }
 
     private static ITorrentManagerFile PickHeuristic(TorrentManager manager)
     {
+        return manager.Files.OrderByDescending(LikelyVideo).ThenByDescending(f => f.Length).First();
+
         static bool LikelyVideo(ITorrentManagerFile f)
         {
             var name = Path.GetFileName(f.Path);
@@ -230,8 +230,6 @@ public sealed class GelatoApiController : ControllerBase
                     or ".ts"
                     or ".m2ts";
         }
-
-        return manager.Files.OrderByDescending(LikelyVideo).ThenByDescending(f => f.Length).First();
     }
 
     private static InfoHashes? TryParseInfoHashes(string s)
@@ -260,14 +258,13 @@ public sealed class GelatoApiController : ControllerBase
                 .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
     private static string[] DefaultTrackers() =>
-        new[]
-        {
+        [
             "udp://tracker.opentrackr.org:1337/announce",
             "udp://open.stealth.si:80/announce",
             "udp://tracker.torrent.eu.org:451/announce",
             "udp://explodie.org:6969/announce",
             "udp://tracker.openbittorrent.com:6969/announce",
-        };
+        ];
 
     private static string GuessContentType(string path)
     {
