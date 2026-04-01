@@ -2,7 +2,7 @@
 name: "Gelato Multi-Addon"
 guid: "94EA4E14-8163-4989-96FE-0A2094BC2D6A"
 version: "1.0.0"
-targetAbi: "10.11.2.0"
+targetAbi: "10.11.7.0"
 framework: "net9.0"
 overview: "Integración Stremio para Jellyfin — Compatible con Torrentio, CineCalidad, AIOStreams y cualquier addon de la comunidad"
 description: >
