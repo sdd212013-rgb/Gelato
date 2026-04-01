@@ -58,6 +58,7 @@ namespace Gelato.Filters
                 cfg.DisableSearch
                 || !ctx.IsApiSearchAction()
                 || !ctx.TryGetActionArgument<string>("searchTerm", out var searchTerm)
+                || cfg.stremio == null
                 || !await cfg.stremio.IsReady()
             )
             {
