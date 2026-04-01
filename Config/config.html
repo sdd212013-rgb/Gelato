@@ -151,7 +151,7 @@
     Dashboard.showLoadingMsg();
 
     ApiClient.getPluginConfiguration(pluginId).then(function (config) {
-        document.getElementById("manifestUrl").value = config.ManifestUrl || "";
+        document.getElementById("manifestUrl").value = config.Url || "";
         document.getElementById("p2pEnabled").checked = config.P2PEnabled !== false;
         document.getElementById("movieLibraryPath").value = config.MovieLibraryPath || "stremio/movies";
         document.getElementById("seriesLibraryPath").value = config.SeriesLibraryPath || "stremio/series";
@@ -172,7 +172,7 @@
         Dashboard.showLoadingMsg();
 
         ApiClient.getPluginConfiguration(pluginId).then(function (config) {
-            config.ManifestUrl = document.getElementById("manifestUrl").value.trim();
+            config.Url = document.getElementById("manifestUrl").value.trim();
             config.P2PEnabled = document.getElementById("p2pEnabled").checked;
             config.MovieLibraryPath = document.getElementById("movieLibraryPath").value.trim() || "stremio/movies";
             config.SeriesLibraryPath = document.getElementById("seriesLibraryPath").value.trim() || "stremio/series";
